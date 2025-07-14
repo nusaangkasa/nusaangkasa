@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simulasi Tata Surya Interaktif</title>
+  <style>
+    body {
+      background-color: #000014;
+      color: white;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      overflow: hidden;
+    }
+    #solar-system {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+    .star {
+      position: absolute;
+      background: white;
+      border-radius: 50%;
+      opacity: 0.8;
+    }
+    .sun {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 100px;
+      height: 100px;
+      margin-left: -50px;
+      margin-top: -50px;
+      background: radial-gradient(circle, #ffcc00, #ff9900);
+      border-radius: 50%;
+      box-shadow: 0 0 40px 20px #ffcc00;
+      z-index: 10;
+      cursor: pointer;
+    }
+    .orbit {
+      position: absolute;
+      border: 1px dashed rgba(255,255,255,0.15);
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform-origin: center center;
+    }
+    .planet, .moon {
+      position: absolute;
+      border-radius: 50%;
+      cursor: pointer;
+      background-size: cover;
+      background-position: center;
+      box-shadow: 0 0 6px rgba(255,255,255,0.5);
+    }
+    .moon {
+      background-color: #aaa;
+    }
+    #info {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.6);
+      padding: 15px;
+      width: 300px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    #controls {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.4);
+      padding: 10px;
+      border-radius: 8px;
+    }
+    button {
+      background-color: #333366;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    input[type="range"] {
+      width: 150px;
+    }
+    h2 {
+      margin-top: 0;
+    }
+    /* Label nama planet */
+    .label {
+      position: absolute;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+      pointer-events: none;
+      user-select: none;
+      text-shadow: 0 0 5px black;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+<div id="solar-system">
+  <div class="sun" title="Matahari"></div>
+</div>
+
+<div id="info">
+  <h2>Tata Surya</h2>
+  <p>Klik planet atau matahari untuk melihat informasinya.</p>
+</div>
+
+<div id="controls">
+  <button id="toggleAnim">Pause</button><br />
+  <label for="speedSlider">Kecepatan Orbit:</label><br />
+  <input type="range" id="speedSlider" min="50" max="2000" value="1000" step="50" />
+  <div id="speedLabel" style="font-size: 12px; color: white;">Speed Scale: 1000</div>
+</div>
+
+<script>
+  const solarSystem = document.getElementById('solar-system');
+  const infoBox = document.getElementById('info');
+  const toggleBtn = document.getElementById('toggleAnim');
+  const speedSlider = document.getElementById('speedSlider');
+  const speedLabel = document.getElementById('speedLabel');
+
+  let speedScale = parseInt(speedSlider.value);
+  let animationRunning = true;
+  let baseSpeed = 0.5; // Kecepatan dasar rotasi (lebih kecil = lebih lambat)
+
+  // Tambah bintang latar belakang
+  for (let i = 0; i < 200; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.width = star.style.height = `${Math.random() * 2 + 1}px`;
+    star.style.top = `${Math.random() * 100}vh`;
+    star.style.left = `${Math.random() * 100}vw`;
+    star.style.opacity = Math.random();
+    solarSystem.appendChild(star);
+  }
+
+  const textures = {
+    'Merkurius': 'https://upload.wikimedia.org/wikipedia/commons/4/4a/Mercury_globe.jpg',
+    'Venus': 'https://upload.wikimedia.org/wikipedia/commons/e/e5/Venus-real_color.jpg',
+    'Bumi': 'https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg',
+    'Mars': 'https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg',
+    'Jupiter': 'https://upload.wikimedia.org/wikipedia/commons/e/e2/Jupiter.jpg',
+    'Saturnus': 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Saturn_during_Equinox.jpg',
+    'Uranus': 'https://upload.wikimedia.org/wikipedia/commons/3/3d/Uranus2.jpg',
+    'Neptunus': 'https://upload.wikimedia.org/wikipedia/commons/5/56/Neptune_Full.jpg'
+  };
+
+  const planets = [
+    { name: 'Merkurius', size: 12, distance: 60, periodDays: 88, desc: 'Planet terkecil dan terdekat dengan Matahari.' },
+    { name: 'Venus', size: 18, distance: 90, periodDays: 225, desc: 'Atmosfer tebal dan sangat panas.' },
+    { name: 'Bumi', size: 20, distance: 130, periodDays: 365, desc: 'Planet tempat tinggal manusia.', moons: [{ name: 'Bulan', size: 6, distance: 20, period: 27 }] },
+    { name: 'Mars', size: 16, distance: 170, periodDays: 687, desc: 'Dikenal sebagai planet merah.' },
+    { name: 'Jupiter', size: 40, distance: 230, periodDays: 4333, desc: 'Planet terbesar dalam tata surya.' },
+    { name: 'Saturnus', size: 38, distance: 290, periodDays: 10759, desc: 'Terkenal karena cincin besar.' },
+    { name: 'Uranus', size: 32, distance: 340, periodDays: 30687, desc: 'Planet es raksasa biru kehijauan.' },
+    { name: 'Neptunus', size: 32, distance: 390, periodDays: 60190, desc: 'Planet terluar, sangat dingin.' }
+  ];
+
+  const planetElements = [];
+
+  planets.forEach(planet => {
+  const orbit = document.createElement('div');
+  orbit.className = 'orbit';
+  orbit.style.width = planet.distance * 2 + 'px';
+  orbit.style.height = planet.distance * 2 + 'px';
+  orbit.style.marginLeft = -planet.distance + 'px';
+  orbit.style.marginTop = -planet.distance + 'px';
+  solarSystem.appendChild(orbit);
+
+  const el = document.createElement('div');
+  el.className = 'planet';
+  el.style.zIndex = 20; // ⬅️ Tambahkan ini agar planet tidak tertutup orbit/bintang
+  el.style.width = planet.size + 'px';
+  el.style.height = planet.size + 'px';
+  el.style.backgroundImage = `url(${textures[planet.name]})`;
+  solarSystem.appendChild(el);
+
+  const label = document.createElement('div');
+  label.className = 'label';
+  label.textContent = planet.name;
+  solarSystem.appendChild(label);
+
+  const obj = {
+    element: el,
+    labelElement: label,
+    distance: planet.distance,
+    size: planet.size,
+    periodDays: planet.periodDays,
+    angle: Math.random() * 360,
+    name: planet.name,
+    desc: planet.desc,
+    moons: []
+  };
+
+  // Tambah event klik — PENTING
+  el.addEventListener('click', () => {
+    infoBox.innerHTML = `<h2>${planet.name}</h2><p>${planet.desc}</p>`;
+  });
+
+  planetElements.push(obj);
+});
+
+  const sun = document.querySelector('.sun');
+  sun.addEventListener('click', () => {
+    infoBox.innerHTML = `
+      <h2>Matahari</h2>
+      <p>Pusat tata surya kita, terdiri dari gas panas yang memancarkan energi dan cahaya.</p>
+    `;
+  });
+
+  speedSlider.addEventListener('input', () => {
+    speedScale = parseInt(speedSlider.value);
+    speedLabel.textContent = 'Speed Scale: ' + speedScale;
+  });
+
+  toggleBtn.addEventListener('click', () => {
+    animationRunning = !animationRunning;
+    toggleBtn.textContent = animationRunning ? 'Pause' : 'Play';
+    if (animationRunning) animate();
+  });
+
+  function animate() {
+    if (!animationRunning) return;
+
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+
+    planetElements.forEach(p => {
+      const periodSec = p.periodDays / speedScale;
+      const angleSpeed = 360 / (periodSec * 1000);
+      p.angle += angleSpeed * 16 * baseSpeed;
+      const rad = p.angle * Math.PI / 180;
+
+      const x = cx + p.distance * Math.cos(rad) - p.size / 2;
+      const y = cy + p.distance * Math.sin(rad) - p.size / 2;
+      p.element.style.left = x + 'px';
+      p.element.style.top = y + 'px';
+
+      // Posisi label planet (sedikit di bawah planet)
+      p.labelElement.style.left = x + p.size / 2 - p.labelElement.offsetWidth / 2 + 'px';
+      p.labelElement.style.top = y + p.size + 4 + 'px';
+
+      p.moons.forEach(moon => {
+        const moonPeriod = moon.period / speedScale;
+        const moonSpeed = 360 / (moonPeriod * 1000);
+        moon.angle += moonSpeed * 16 * baseSpeed;
+        const moonRad = moon.angle * Math.PI / 180;
+
+        const mx = x + p.size / 2 + moon.distance * Math.cos(moonRad) - moon.size / 2;
+        const my = y + p.size / 2 + moon.distance * Math.sin(moonRad) - moon.size / 2;
+        moon.element.style.left = mx + 'px';
+        moon.element.style.top = my + 'px';
+
+        // Posisi label bulan
+        if (moon.labelElement) {
+          moon.labelElement.style.left = mx + moon.size / 2 - moon.labelElement.offsetWidth / 2 + 'px';
+          moon.labelElement.style.top = my + moon.size + 2 + 'px';
+        }
+      });
+    });
+
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+</script>
+
+</body>
+</html>
